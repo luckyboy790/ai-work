@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Simulation,skyAt,terrainHeight,moveWithCollisions,freshMeta} from '../src/simulation.js';
+const near=(a,b,epsilon=1e-8)=>assert.ok(Math.abs(a-b)<=epsilon,`${a} != ${b}`);
+test('ephemeris is deterministic and all sun directions are unit vectors',()=>{for(let t=0;t<5000;t+=17.3){const a=skyAt(t,137);assert.deepEqual(a,skyAt(t,137));for(const sun of a.suns)near(Math.hypot(sun.dir.x,sun.dir.y,sun.dir.z),1)}});
+test('temperature forcing is exactly the sum of the rendered suns',()=>{for(let t=0;t<2000;t+=11){const a=skyAt(t);near(a.flux,a.suns.reduce((v,s)=>v+s.flux,0));near(a.equilibrium,Math.min(180,Math.max(-70,-49+100*a.flux)));assert.ok(a.suns.every(s=>s.flux>=0))}});
+test('approaching sun visibly enlarges and increases flux before temperature follows',()=>{const sim=new Simulation();sim.tick(140);const a=sim.s.sky.suns[0];sim.tick(40);assert.ok(sim.s.sky.suns[0].angularRadius>a.angularRadius*1.4);assert.ok(sim.s.sky.flux>2);assert.ok(sim.s.temperature<sim.s.sky.equilibrium)});
+test('distant three flying stars cause cold, not a heat event',()=>{const a=skyAt(405);assert.equal(a.suns.filter(s=>s.far).length,3);assert.ok(a.flux<.04);assert.ok(a.equilibrium< -44)});
+test('temperature and size are continuous across authored event boundaries',()=>{for(let t=0;t<1600;t+=.6){const a=skyAt(t),b=skyAt(t+.001);assert.ok(Math.abs(a.flux-b.flux)<.003);a.suns.forEach((s,i)=>assert.ok(Math.abs(s.angularRadius-b.suns[i].angularRadius)<.015))}});
+test('fixed-seed identical actions reproduce identical state',()=>{const a=new Simulation(),b=new Simulation();for(let i=0;i<300;i++){if(i%20===0){a.action('observe');b.action('observe')}a.tick(.1);b.tick(.1)}assert.deepEqual(a.s,b.s)});
+test('dehydration transfers over time, recovers water and has handling losses',()=>{const a=new Simulation();const before=a.s.active+a.s.dry,w=a.s.water;assert.ok(a.action('dehydrate').ok);a.tick(1);assert.ok(a.s.active>0&&a.s.active<36);a.tick(10);assert.equal(a.s.active,0);assert.equal(a.s.mode,'none');assert.ok(a.s.water>w);assert.ok(a.s.active+a.s.dry<before);near(a.s.losses.handling,36*.008,1e-6)});
+test('dehydrated population does no labour',()=>{const a=new Simulation();a.action('dehydrate');a.tick(10);const k=a.s.knowledge,m=a.s.materials;a.tick(25);near(a.s.knowledge,k);near(a.s.materials,m)});
+test('revival charges water before exposing people gradually',()=>{const a=new Simulation(),w=a.s.water;assert.ok(a.action('revive','batch').ok);near(a.s.water,w-24*.65);assert.equal(a.s.active,36);a.tick(1);near(a.s.active,39,1e-6);assert.equal(a.s.mode,'revive')});
+test('revival cannot overspend water or create population',()=>{const a=new Simulation();a.s.water=2;assert.equal(a.action('revive','all').ok,false);assert.equal(a.s.active,36);a.s.water=240;a.action('revive','all');a.tick(29);near(a.s.active+a.s.dry,120,1e-5);assert.equal(a.s.dry,0)});
+test('new withdrawal cancels revival without refunding already spent water',()=>{const a=new Simulation();a.action('revive','all');a.tick(2);const w=a.s.water;a.action('dehydrate');a.tick(1);assert.equal(a.s.mode,'dehydrate');assert.ok(a.s.water<w+4)});
+test('repairs require resources, workers and suitable temperature',()=>{const a=new Simulation();a.s.active=0;assert.equal(a.action('repair').ok,false);a.s.active=36;a.s.materials=0;assert.equal(a.action('repair').ok,false);a.s.materials=50;a.s.temperature=80;assert.ok(a.action('repair').ok);a.tick(1);assert.equal(a.s.project.progress,0)});
+test('abandoning repair by dehydrating all workers stalls it',()=>{const a=new Simulation();a.action('repair');a.action('dehydrate');a.tick(9);assert.ok(a.s.project);const p=a.s.project.progress;a.tick(10);near(a.s.project.progress,p)});
+test('a repaired vault remains vulnerable to extreme sustained heat',()=>{const a=new Simulation();a.s.vault=100;a.action('dehydrate');a.tick(255);assert.ok(a.s.vault<60);assert.ok(a.s.dry>0)});
+test('ruined vault no longer protects dry bodies',()=>{const a=new Simulation();a.s.active=0;a.s.vault=0;a.s.t=200;a.s.temperature=150;const n=a.s.dry;a.tick(5);assert.ok(a.s.dry<n);assert.ok(a.s.losses.vault>0)});
+test('research tradeoff produces more knowledge and less water than balanced labour',()=>{const a=new Simulation(),b=new Simulation();b.action('task','research');a.tick(35);b.tick(35);assert.ok(b.s.knowledge>a.s.knowledge*2);assert.ok(b.s.water<a.s.water)});
+test('archive alone determines knowledge inherited after extinction',()=>{const a=new Simulation();a.s.knowledge=90;a.action('lore','ruinCold');assert.ok(a.action('archive').ok);const bank=a.s.meta.banked;a.s.knowledge+=55;const b=new Simulation(208,a.s.meta);assert.equal(b.s.knowledge,Math.floor(bank*.7));assert.ok(b.s.records.includes('ruinCold'));assert.equal(b.s.meta.banked,bank)});
+test('unsealed ruins and knowledge are not inherited',()=>{const a=new Simulation();a.action('lore','ruinHeat');a.s.knowledge=80;const b=new Simulation(200,a.s.meta);assert.equal(b.s.knowledge,0);assert.deepEqual(b.s.records,[])});
+test('observation cooldown rejects meaningless duplicate samples',()=>{const a=new Simulation();assert.ok(a.action('observe').ok);assert.equal(a.action('observe').ok,false);assert.equal(a.s.forecast,null);a.tick(11);assert.ok(a.action('observe').ok);assert.ok(a.s.forecast)});
+test('prediction depends only on past measurements, never future ephemeris',()=>{const a=new Simulation();a.action('observe');a.tick(12);a.action('observe');const f=a.predict();a.s.seed=999999;a.s.sky=skyAt(600,99);a.s.t=9000;assert.deepEqual(a.predict(),f)});
+test('predictions are checked against later measured temperature',()=>{const a=new Simulation();a.action('observe');a.tick(12);a.action('observe');assert.equal(a.s.checkedForecasts,0);a.tick(13);assert.equal(a.s.checkedForecasts,1);assert.ok(Number.isFinite(a.s.forecasts[0].actual))});
+test('save roundtrip preserves current operations and resources',()=>{const a=new Simulation();a.action('dehydrate');a.tick(2);const b=Simulation.restore(a.serialize());assert.ok(b);assert.deepEqual(b.s,a.s);a.tick(2);b.tick(2);assert.deepEqual(b.s,a.s)});
+test('invalid or incompatible save never crashes restoration',()=>{for(const x of ['bad','null','{}','{"version":99,"state":{}}'])assert.equal(Simulation.restore(x),null);const a=new Simulation();a.s.active=-1;assert.equal(Simulation.restore(a.serialize()),null)});
+test('new run resets transitions, history, resources and terminal flags',()=>{const a=new Simulation();a.tick(1100);assert.equal(a.s.ended,true);const b=new Simulation(a.s.seed,a.s.meta);assert.equal(b.s.t,0);assert.equal(b.s.ended,false);assert.equal(b.s.mode,'none');assert.equal(b.s.water,112);assert.equal(b.s.active,36);assert.equal(b.s.history.length,0)});
+test('neglecting the civilization eventually produces an explained failure',()=>{const a=new Simulation();a.tick(1200);assert.equal(a.s.ended,true);assert.equal(a.s.won,false);assert.match(a.failureReason(),/仓毁|缺水|灼热|严寒/);assert.ok(a.s.log.some(x=>x.kind==='warning'));assert.ok(a.s.losses.vault>0)});
+test('playable policy can survive two disasters and complete the core loop',()=>{
+ const a=new Simulation();a.action('lore','ruinCold');a.action('lore','ruinHeat');a.action('task','research');
+ for(let i=0;i<800&&!a.s.ended;i++){
+  const s=a.s;if(s.t<130&&i%15===0)a.action('observe');
+  if(s.knowledge>=90&&s.meta.banked<80){a.action('archive');a.action('task','water')}
+  if((s.temperature>40&&s.tempTrend>.3||s.temperature< -8&&s.tempTrend<-.3)&&s.active>1)a.action('dehydrate');
+  if(s.vault<80&&s.temperature>-10&&s.temperature<40&&s.active>=8&&!s.project)a.action('repair');
+  if(s.temperature>0&&s.temperature<35&&Math.abs(s.tempTrend)<1.8&&s.sky.flux>.45&&s.sky.flux<1.2&&s.dry>1&&s.mode==='none')a.action('revive','all');
+  if(s.catastrophes>=2&&s.active>=32)a.action('complete');a.tick(1);
+ }
+ assert.equal(a.s.won,true);assert.ok(a.s.active>=32);assert.ok(a.s.catastrophes>=2);assert.ok(a.s.meta.banked>=80);
+});
+test('completion cannot be triggered without the objective conditions',()=>{const a=new Simulation();assert.equal(a.action('complete').ok,false);assert.equal(a.s.ended,false)});
+test('thirst is causal and leaves a distinct loss record',()=>{const a=new Simulation();a.s.water=0;a.s.temperature=100;a.s.t=200;a.tick(1);assert.ok(a.s.losses.thirst>0)});
+test('simulation is bounded across 50 generations and nonfinite time is ignored',()=>{for(let seed=100;seed<150;seed++){const a=new Simulation(seed);a.tick(NaN);assert.equal(a.s.t,0);a.tick(3600);for(const key of ['temperature','active','dry','water','materials','knowledge','vault'])assert.ok(Number.isFinite(a.s[key]),key);assert.ok(a.s.active+a.s.dry<=120.00001);assert.ok(a.s.water>=0&&a.s.water<=240);assert.ok(a.s.vault>=0&&a.s.vault<=100)}});
+test('ground height is continuous and finite on the complete walkable disc',()=>{for(let x=-118;x<=118;x+=3)for(let z=-118;z<=118;z+=3){assert.ok(Number.isFinite(terrainHeight(x,z)));assert.ok(Math.abs(terrainHeight(x,z)-terrainHeight(x+.01,z))<.02)}});
+test('large movement does not tunnel through walls',()=>{const c=[{kind:'box',x:0,z:0,w:6,d:1}];const p=moveWithCollisions(0,10,0,-50,c);assert.ok(p.z>=.90&&p.z<=1.15)});
+test('wall collision permits sliding rather than locking the player',()=>{const c=[{kind:'box',x:0,z:0,w:10,d:1}];const p=moveWithCollisions(0,1,3,-3,c);assert.ok(p.x>2.9);assert.ok(p.z>.90)});
+test('circle collision and world boundary are reliable',()=>{const c=[{kind:'circle',x:0,z:0,r:5}];const p=moveWithCollisions(0,10,0,-20,c);assert.ok(Math.hypot(p.x,p.z)>=5.42);const q=moveWithCollisions(110,0,60,0,[]);assert.ok(Math.hypot(q.x,q.z)<=118)});
+test('solid side walls preserve an open doorway',()=>{const c=[{kind:'box',x:-3,z:0,w:3,d:1},{kind:'box',x:3,z:0,w:3,d:1}];const p=moveWithCollisions(0,4,0,-8,c);assert.ok(p.z< -3.9)});

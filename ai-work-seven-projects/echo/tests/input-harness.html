@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Input verification harness — not the rendered game</title><style>
+html,body{margin:0;height:100%;overflow:hidden;background:#16252c;color:#d8dbc8;font:14px system-ui}canvas{width:100%;height:100%;position:fixed;inset:0;touch-action:none}#joystick{position:absolute;bottom:35px;left:30px;width:110px;height:110px;border:1px solid #bbb9;border-radius:50%;display:grid;place-items:center;touch-action:none}#stick{width:40px;height:40px;border:1px solid #cca;border-radius:50%;pointer-events:none}#label{position:absolute;top:20px;left:20px;pointer-events:none}button{position:absolute;right:20px;bottom:30px;padding:20px;min-width:100px}#status{position:absolute;top:65px;left:20px;pointer-events:none}
+</style></head><body><canvas id="world"></canvas><div id="label">输入逻辑测试夹具 · 不是 Three.js 场景</div><div id="status"></div><div id="joystick"><div id="stick"></div></div><button id="act">交互</button><script type="module">
+import {Input} from '../src/input.js';import {terrainHeight} from '../src/simulation.js';
+const p={x:0,y:1.78,z:27,set(x,y,z){Object.assign(this,{x,y,z})}},r={x:0,y:0,z:0,set(x,y,z){Object.assign(this,{x,y,z})}},camera={position:p,rotation:r};
+const events=[];const input=new Input(document.querySelector('canvas'),camera,[{kind:'box',x:0,z:10,w:6,d:1},{kind:'circle',x:10,z:0,r:4}],a=>{events.push(a);if(a==='pause')input.setEnabled(!input.enabled)});input.reset();input.setEnabled(true);
+document.querySelector('#act').onclick=()=>events.push('touch-button');
+let last=performance.now();function frame(t){input.update(Math.min(.1,(t-last)/1000));last=t;document.querySelector('#status').textContent=`x=${input.x.toFixed(2)} z=${input.z.toFixed(2)} yaw=${input.yaw.toFixed(2)}`;requestAnimationFrame(frame)}requestAnimationFrame(frame);
+window.harness={snapshot:()=>({x:input.x,z:input.z,yaw:input.yaw,pitch:input.pitch,y:camera.position.y,ground:terrainHeight(input.x,input.z),events:[...events],stick:{...input.stick},enabled:input.enabled}),reset:()=>{input.reset();input.setEnabled(true)}};
+</script></body></html>

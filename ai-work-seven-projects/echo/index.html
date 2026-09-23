@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+ <meta name="theme-color" content="#172123"><meta name="description" content="三体·文明回声。观察三日，保存知识，在无常中延续文明。所有视觉与声音均为程序生成。">
+ <title>三体 · 文明回声</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'%3E%3Crect width='60' height='60' rx='12' fill='%23172123'/%3E%3Cg fill='none' stroke='%23c9ae7b' stroke-width='2'%3E%3Cellipse cx='30' cy='30' rx='23' ry='10' transform='rotate(60 30 30)'/%3E%3Cellipse cx='30' cy='30' rx='23' ry='10' transform='rotate(-60 30 30)'/%3E%3Cellipse cx='30' cy='30' rx='23' ry='10'/%3E%3C/g%3E%3C/svg%3E"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+ <canvas id="world" aria-label="可探索的三维三体世界" tabindex="0"></canvas>
+ <div class="vignette" aria-hidden="true"></div><div id="climateOverlay" aria-hidden="true"></div>
+ <div id="loading"><span class="orbit-logo"><i></i><i></i><i></i></span><span>正在唤醒观测终端</span></div>
+ <section id="entry" class="entry hidden" aria-labelledby="entryTitle">
+  <div class="entry-top"><span class="wordmark">TRISOLARIS <b> / </b> ECHOES</span><span class="technical">程序化三维体验 <span class="dot"></span></span></div>
+  <div class="entry-copy">
+   <div class="eyebrow"><span class="thin-line"></span> 第 <span id="entryGen">137</span> 号文明 · 守望者档案</div>
+   <h1 id="entryTitle">三体</h1><h2>文明回声</h2>
+   <p class="entry-quote">我们没有等到永恒。<br>我们只是学会了，再醒来一次。</p>
+   <p class="entry-description">站在三颗太阳之下。观察天象，唤醒族人，<br>在下一场灾变到来前，为文明留下退路。</p>
+   <div class="entry-actions"><button id="begin" class="primary">进入世界 <span>↗</span></button><button id="continue" class="secondary hidden">继续守望</button></div>
+   <div class="entry-hint">桌面键鼠 / 触摸操作 · 耳机体验更佳</div>
+  </div>
+  <div class="entry-bottom"><span>恒纪元不是承诺，预测也不是命运。</span><button data-global="guide">玩法与模拟边界 ↗</button></div>
+ </section>
+ <main id="hud" class="hidden">
+  <header class="hud-top">
+   <div class="brand"><span class="orbit-logo small"><i></i><i></i><i></i></span><div><strong>三体 <span>文明回声</span></strong><small>文明 <b id="generation">137</b> · 观测刻 <b id="epoch">000.0</b></small></div></div>
+   <div class="era"><span id="eraDot"></span><div><strong id="eraName">恒纪元 · 暂定</strong><small id="skyCue">一轮太阳，两颗飞星</small></div></div>
+   <div class="top-buttons"><button id="soundButton" title="合成环境音" aria-label="切换环境音">声 / 开</button><button data-global="pause" aria-label="暂停与设置">Ⅱ</button></div>
+  </header>
+  <div id="compass"><span>西</span><div id="bearing">000° · 北</div><span>东</span></div>
+  <div class="temperature"><div class="eyebrow">地表温度</div><div><strong id="temperature">22</strong><span>°C</span><b id="trend">→</b></div><small id="thermalHint">余温会延后真实的危险</small></div>
+  <div id="objective" class="objective"><span class="eyebrow">文明续存协议</span><p id="objectiveText">走近观星台，记录第一组天象。</p><div class="goal-track"><i id="goal1"></i><i id="goal2"></i><i id="goal3"></i></div><small id="objectiveDetail">用观测取代猜测</small></div>
+  <div id="reticle" aria-hidden="true"></div><div id="targetLabel"></div>
+  <div id="radio" role="status"><span class="radio-mark">⌁</span><span id="radioText"></span></div>
+  <section class="civilization" aria-label="文明状态">
+   <div class="civ-title"><span>生命的尺度</span><span id="population">120 人</span></div>
+   <div class="people-counts"><div><strong id="active">36</strong><small><i class="awake-dot"></i> 清醒</small></div><span class="divide"></span><div><strong id="dry">84</strong><small><i class="dry-dot"></i> 脱水封存</small></div><div class="vault-stat"><strong id="vault">82<span>%</span></strong><small>仓体完整</small></div></div>
+   <div class="population-bar"><div id="activeBar"></div><div id="dryBar"></div></div>
+   <div class="resources"><div><span>水</span><strong id="water">112</strong><small>/240</small></div><div><span>建材</span><strong id="materials">75</strong><small>/180</small></div><div><span>知识</span><strong id="knowledge">0</strong><small id="banked">已刻 0</small></div></div>
+   <div class="work-status"><span id="workStatus">均衡生计</span><span id="modeStatus">36 人正在劳动</span></div>
+  </section>
+  <div class="bottom-tools"><button data-global="journal"><kbd>J</kbd> 观测手记</button><button data-global="map"><kbd>M</kbd> 地图</button><button id="speedButton" data-global="speed"><kbd>T</kbd> 时间 ×1</button></div>
+  <div class="desktop-help"><span><kbd>W A S D</kbd> 行走</span><span>拖动 / 双击锁定视角</span><span><kbd>Shift</kbd> 快走</span></div>
+  <button id="interact" class="interact hidden"><kbd>E</kbd><span id="interactText">使用观星台</span><span class="arrow">↗</span></button>
+  <div id="touchControls"><div id="joystick" aria-label="拖动行走"><div class="stick-base"></div><div id="stick"></div></div><span class="look-help">拖动空白处环顾</span></div>
+ </main>
+ <aside id="station" class="station hidden" aria-label="附近设施操作"><div class="station-heading"><span class="eyebrow" id="stationType">FACILITY / 01</span><button data-global="closeStation" aria-label="关闭设施">×</button></div><h2 id="stationTitle"></h2><p id="stationDesc"></p><div id="stationStats"></div><div id="stationActions"></div><small class="time-note">世界仍在演化 · 离开设施范围将关闭此面板</small></aside>
+ <div id="mapPanel" class="map-panel hidden"><div class="station-heading"><span class="eyebrow">聚落测绘 · 北向上</span><button data-global="map" aria-label="关闭地图">×</button></div><canvas id="map" width="520" height="430" aria-label="观星台、干仓、复苏池及遗迹方位"></canvas><small>地点标记不是传送点。黄色箭头是你。</small></div>
+ <div id="modalShade" class="modal-shade hidden"><section id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-top"><span id="modalEyebrow" class="eyebrow"></span><button id="modalClose" data-global="closeModal" aria-label="关闭">×</button></div><h2 id="modalTitle"></h2><div id="modalContent"></div></section></div>
+ <div id="toast" role="status"></div><div id="transition" aria-hidden="true"></div>
+ <script type="module">
+  import('./src/main.js').catch(error=>{
+   document.querySelector('#loading').innerHTML='<div class="load-error"><h2>观测终端未能启动</h2><p>请先在项目目录执行 <code>npm ci &amp;&amp; npm run vendor</code>，再运行 <code>npm start</code> 并访问 localhost:4173。</p><p>浏览器需要启用 WebGL 2。不要用 file:// 直接打开。</p><details><summary>错误详情</summary><pre></pre></details><button onclick="location.reload()">重新加载</button></div>';
+   document.querySelector('#loading pre').textContent=String(error);console.error(error);
+  });
+ </script>
+</body>
+</html>
